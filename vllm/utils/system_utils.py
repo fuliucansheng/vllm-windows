@@ -294,43 +294,12 @@ def find_loaded_library(lib_name: str) -> str | None:
                 return None
     elif "cudart" in lib_name:
         import torch
-        cudart_path = os.getenv("VLLM_CUDART_SO_PATH", None)
-        if cudart_path is None:
-            cuda_path = None
-            if os.environ.get("CUDA_HOME", None):
-                cuda_path = os.environ.get("CUDA_HOME")
-            elif os.environ.get("CUDA_ROOT", None):
-                cuda_path = os.environ.get("CUDA_ROOT")
-            elif os.environ.get("CUDA_PATH"):
-                cuda_path = os.environ.get("CUDA_PATH", None)
 
-            cuda_major_version = torch.version.cuda.split(
-                '.')[0] if torch.version.cuda else "12"
-            if cuda_major_version < "12":
-                cuda_major_version += "0"
-            if cuda_path:
-                dll_bin_path = os.path.join(cuda_path, "bin")
-                if os.path.exists(os.path.join(cuda_path, "bin", "x64")):
-                    dll_bin_path = os.path.join(cuda_path, "bin", "x64")
-                cudart_path = os.path.abspath(
-                    os.path.join(dll_bin_path, f"cudart64_{cuda_major_version}.dll"))
-            else:
-                from shutil import which
-                nvcc_path = which("nvcc")
-                if nvcc_path:
-                    cudart_path = os.path.abspath(
-                        os.path.join(nvcc_path, f"cudart64_{cuda_major_version}.dll"))
-            if cudart_path:
-                os.environ["VLLM_CUDART_SO_PATH"] = cudart_path
-                logger.info('VLLM_CUDART_SO_PATH resolved to %s', cudart_path)
-            else:
-                raise ValueError(
-                    'VLLM_CUDART_SO_PATH is not set. '
-                    'VLLM_CUDART_SO_PATH need to be set with the absolute path '
-                    'to cudart dll on Windows (for example, set '
-                    'VLLM_CUDART_SO_PATH=C:\\CUDA\\v12.4\\bin\\cudart64_12.dll)'
-                )
+        from vllm.utils.windows_utils import find_cuda_runtime
+
+        path = find_cuda_runtime(torch.version.cuda)
+        os.environ["VLLM_CUDART_SO_PATH"] = path
+        logger.info("VLLM_CUDART_SO_PATH resolved to %s", path)
     elif "cumem_allocator" in lib_name:
-        path = os.path.join(os.path.dirname(__file__), '..',
-                            'cumem_allocator.pyd')
+        path = os.path.join(os.path.dirname(__file__), "..", "cumem_allocator.pyd")
     return path
